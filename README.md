@@ -1,5 +1,3 @@
-# ksp-identity-resolution
-
 # KSP Identity Resolution
 
 **One person. Many spellings. One record.**
