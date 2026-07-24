@@ -1,0 +1,7 @@
+{
+  "name": "ksp-identity-resolution-engine",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Entity resolution engine and evaluation harness. Zero runtime dependencies.",
+  "main": "entity_resolution.js"
+}

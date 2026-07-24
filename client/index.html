@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KSP · Identity Resolution</title>
+<style>
+:root{
+  --ground:#141A24;      /* console */
+  --panel:#1B2330;
+  --edge:#2A3546;
+  --paper:#EDE7DA;       /* the case file itself */
+  --paper-line:#D6CEBC;
+  --paper-ink:#2A2620;
+  --ink:#E4E9F0;
+  --muted:#7C8798;
+  --stamp:#B33A2B;       /* record stamp red — what was missed */
+  --seal:#4E9E7E;        /* resolved */
+  --brass:#C79A3E;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:var(--ground); color:var(--ink);
+  font:15px/1.6 ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif;
+  padding:34px 22px 90px;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:940px;margin:0 auto}
+
+/* ── masthead ───────────────────────────── */
+.eyebrow{
+  font:600 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;
+  letter-spacing:.2em; text-transform:uppercase; color:var(--brass);
+  display:flex; align-items:center; gap:10px; margin-bottom:14px;
+}
+.eyebrow::after{content:"";flex:1;height:1px;background:var(--edge)}
+h1{
+  font:400 30px/1.15 Georgia,"Times New Roman",serif;
+  letter-spacing:-.015em; margin:0 0 8px;
+}
+.deck{color:var(--muted); font-size:14.5px; max-width:60ch; margin:0 0 30px}
+
+/* ── query ──────────────────────────────── */
+.query{background:var(--panel);border:1px solid var(--edge);border-radius:3px;padding:18px}
+.qlabel{
+  font:600 10.5px/1 ui-monospace,monospace; letter-spacing:.16em;
+  text-transform:uppercase; color:var(--muted); margin-bottom:9px;
+}
+.qrow{display:flex;gap:9px;flex-wrap:wrap}
+input[type=text]{
+  flex:1; min-width:220px; background:#0E141C; border:1px solid var(--edge);
+  color:var(--ink); padding:11px 13px; border-radius:2px; font-size:15px;
+  font-family:inherit;
+}
+input[type=text]:focus{outline:2px solid var(--brass);outline-offset:1px;border-color:transparent}
+button{
+  background:var(--brass); color:#1A1408; border:0; padding:11px 20px;
+  border-radius:2px; font:650 14px/1 inherit; cursor:pointer; letter-spacing:.01em;
+}
+button:hover{filter:brightness(1.09)}
+button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+button[disabled]{opacity:.5;cursor:default}
+.chips{display:flex;gap:7px;flex-wrap:wrap;margin-top:13px}
+.chip{
+  background:transparent;color:var(--muted);border:1px solid var(--edge);
+  padding:5px 11px;border-radius:2px;cursor:pointer;
+  font:500 12.5px/1 ui-monospace,monospace;
+}
+.chip:hover{color:var(--ink);border-color:var(--muted)}
+
+/* ── verdict split ──────────────────────── */
+.split{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:26px}
+.vcard{border:1px solid var(--edge);border-radius:3px;padding:16px 17px;background:var(--panel)}
+.vcard.miss{border-left:3px solid var(--stamp)}
+.vcard.hit{border-left:3px solid var(--seal)}
+.vlabel{
+  font:600 10.5px/1 ui-monospace,monospace;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--muted);margin-bottom:11px;
+}
+.vnum{font:400 40px/1 Georgia,serif;letter-spacing:-.02em}
+.vcard.miss .vnum{color:var(--stamp)}
+.vcard.hit .vnum{color:var(--seal)}
+.vnote{font-size:12.5px;color:var(--muted);margin-top:7px}
+
+/* ── evidence ledger: the signature ─────── */
+.ledger{
+  background:var(--paper); color:var(--paper-ink);
+  border-radius:3px; margin-top:12px; overflow:hidden;
+  box-shadow:0 14px 34px rgba(0,0,0,.44);
+}
+.lhead{
+  padding:16px 20px 13px; border-bottom:1.5px solid var(--paper-line);
+  display:flex;justify-content:space-between;align-items:baseline;gap:14px;flex-wrap:wrap;
+}
+.lname{font:400 23px/1.2 Georgia,serif;letter-spacing:-.01em}
+.lmeta{font:500 11.5px/1 ui-monospace,monospace;letter-spacing:.08em;color:#6B6355;text-transform:uppercase}
+.conf{
+  display:inline-block;padding:3px 9px;border-radius:2px;
+  font:650 11px/1.35 ui-monospace,monospace;letter-spacing:.05em;
+  background:rgba(78,158,126,.17);color:#2F6B54;border:1px solid rgba(78,158,126,.4);
+}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+thead th{
+  text-align:left;padding:9px 20px;font:600 10px/1 ui-monospace,monospace;
+  letter-spacing:.13em;text-transform:uppercase;color:#7A7264;
+  border-bottom:1px solid var(--paper-line);
+}
+tbody td{padding:9px 20px;border-bottom:1px solid rgba(214,206,188,.55);vertical-align:top}
+tbody tr:last-child td{border-bottom:0}
+tbody tr.missed td:first-child{box-shadow:inset 3px 0 0 var(--stamp)}
+.asrec{font:500 13px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre}
+.ws{color:#B9AF9A}
+.tag{
+  font:650 9.5px/1 ui-monospace,monospace;letter-spacing:.1em;
+  color:var(--stamp);border:1px solid rgba(179,58,43,.42);
+  padding:2.5px 5px;border-radius:2px;margin-left:7px;vertical-align:1px;
+}
+.dim{color:#6B6355}
+
+/* ── reasoning + provenance ─────────────── */
+.sect{margin-top:28px}
+.stitle{
+  font:600 10.5px/1 ui-monospace,monospace;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--muted);margin-bottom:12px;
+  display:flex;align-items:center;gap:10px;
+}
+.stitle::after{content:"";flex:1;height:1px;background:var(--edge)}
+.reasons{list-style:none;padding:0;margin:0;display:grid;gap:8px}
+.reasons li{
+  background:var(--panel);border:1px solid var(--edge);border-left:2px solid var(--seal);
+  border-radius:2px;padding:10px 13px;font-size:13.5px;
+}
+.prov{
+  background:var(--panel);border:1px solid var(--edge);border-radius:3px;
+  padding:15px 17px;font-size:13px;color:var(--muted);
+}
+.prov dt{font:600 10px/1 ui-monospace,monospace;letter-spacing:.13em;
+  text-transform:uppercase;color:#5F6A7A;margin-top:11px}
+.prov dt:first-child{margin-top:0}
+.prov dd{margin:5px 0 0;color:var(--ink);font-size:13px}
+.limit{border-left:2px solid var(--brass);padding-left:12px;margin-top:15px;
+  font-size:13px;color:#B9A97E}
+
+/* ── states ─────────────────────────────── */
+.state{
+  border:1px dashed var(--edge);border-radius:3px;padding:34px 22px;
+  text-align:center;color:var(--muted);margin-top:26px;
+}
+.state strong{display:block;color:var(--ink);font:400 19px/1.3 Georgia,serif;margin-bottom:7px}
+.state.refuse{border-color:rgba(199,154,62,.5);border-style:solid}
+.state.refuse strong{color:var(--brass)}
+.err{border-color:rgba(179,58,43,.55)}
+.err strong{color:var(--stamp)}
+
+/* ── footer bar ─────────────────────────── */
+.bench{
+  display:flex;gap:26px;flex-wrap:wrap;margin-top:30px;padding-top:18px;
+  border-top:1px solid var(--edge);font:500 12px/1.5 ui-monospace,monospace;color:var(--muted);
+}
+.bench b{color:var(--ink);font-weight:650}
+
+@media(max-width:620px){
+  .split{grid-template-columns:1fr}
+  h1{font-size:25px}
+  thead th:nth-child(4),tbody td:nth-child(4){display:none}
+}
+@keyframes rise{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+tbody tr{animation:rise .3s ease both}
+@media(prefers-reduced-motion:reduce){tbody tr{animation:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="eyebrow">Karnataka State Police · FIR Identity Resolution</div>
+  <h1>One person. Many spellings. One record.</h1>
+  <p class="deck">
+    The same individual is entered differently at every station — transliterated, abbreviated,
+    reversed, or typed in Kannada. Exact-match search finds a fraction of them. Search a name
+    below and compare what each method returns.
+  </p>
+
+  <div class="query">
+    <div class="qlabel">Name as you have it</div>
+    <div class="qrow">
+      <input type="text" id="q" value="ರವಿ ಪಾಟೀಲ್" autocomplete="off"
+             aria-label="Name to resolve" onkeydown="if(event.key==='Enter')run()">
+      <button id="go" onclick="run()">Resolve identity</button>
+    </div>
+    <div class="chips">
+      <button class="chip" onclick="pick('ರವಿ ಪಾಟೀಲ್')">ರವಿ ಪಾಟೀಲ್</button>
+      <button class="chip" onclick="pick('Ravi Patil')">Ravi Patil</button>
+      <button class="chip" onclick="pick('R. Patil')">R. Patil</button>
+      <button class="chip" onclick="pick('Khan Yusuf')">Khan Yusuf</button>
+      <button class="chip" onclick="pick('YusufKhan')">YusufKhan</button>
+      <button class="chip" onclick="pick('Zzzq Nobody')">a name not on file</button>
+    </div>
+  </div>
+
+  <div id="out">
+    <div class="state">
+      <strong>Nothing searched yet</strong>
+      Pick a sample above, or type any name on file.
+    </div>
+  </div>
+
+  <div class="bench" id="bench"></div>
+</div>
+
+<script>
+const BASE = location.origin + '/server/ksp_crime_intel_function';
+
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* Make invisible variance visible — double spaces and trailing spaces are
+   real data-entry artefacts and the reason exact match fails. */
+function asRecorded(name){
+  let s = esc(name);
+  s = s.replace(/ {2,}/g, m => '<span class="ws">'+'·'.repeat(m.length)+'</span>');
+  s = s.replace(/ $/,     '<span class="ws">·</span>');
+  return s;
+}
+
+const pick = v => { document.getElementById('q').value = v; run(); };
+
+function paint(html){ document.getElementById('out').innerHTML = html; }
+
+async function run(){
+  const name = document.getElementById('q').value.trim();
+  if(!name) return;
+  const btn = document.getElementById('go');
+  btn.disabled = true; btn.textContent = 'Resolving…';
+  paint('<div class="state"><strong>Searching every station</strong>Comparing spellings, ages and scripts.</div>');
+
+  try{
+    const r = await fetch(BASE + '/resolve', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ name })
+    });
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.error || 'request failed');
+    render(j);
+  }catch(e){
+    paint('<div class="state err"><strong>Could not reach the service</strong>'+esc(e.message)+
+          '<br>Check the function is deployed and reachable.</div>');
+  }finally{
+    btn.disabled = false; btn.textContent = 'Resolve identity';
+  }
+}
+
+function render(j){
+  if(!j.results.length){
+    paint('<div class="state refuse"><strong>No identity meets the confidence threshold</strong>'+
+      esc(j.limitations[0])+'</div>');
+    return;
+  }
+  const c = j.results[0];
+  const naive = j.naiveExactMatchCount;
+
+  const rows = c.members.map(m => {
+    const missed = !(m.name.toLowerCase().trim() === j.query.toLowerCase().trim());
+    return `<tr class="${missed?'missed':''}">
+      <td class="dim">${esc(m.meta?.date||'')}</td>
+      <td><span class="asrec">${asRecorded(m.name)}</span>${missed?'<span class="tag">MISSED</span>':''}</td>
+      <td class="dim">${m.age ?? '—'}</td>
+      <td class="dim">${esc(m.meta?.station||'')}</td>
+      <td class="dim">${esc(m.meta?.crimeSubHead||'')}</td>
+    </tr>`;
+  }).join('');
+
+  const yrs = c.activeYears ? c.activeYears[0]+'–'+c.activeYears[1] : '';
+
+  paint(`
+    <div class="split">
+      <div class="vcard miss">
+        <div class="vlabel">Exact-match search</div>
+        <div class="vnum">${naive}</div>
+        <div class="vnote">records returned for “${esc(j.query)}”. ${c.missedByExactMatch} further records
+        belonging to the same person were never surfaced.</div>
+      </div>
+      <div class="vcard hit">
+        <div class="vlabel">Resolved identity</div>
+        <div class="vnum">${c.recordCount}</div>
+        <div class="vnote">records across ${c.districts.length} districts and
+        ${c.stations.length} stations, ${yrs}.</div>
+      </div>
+    </div>
+
+    <div class="ledger">
+      <div class="lhead">
+        <div>
+          <div class="lname">${esc(c.canonical)}</div>
+          <div class="lmeta">Cluster ${esc(c.clusterId)} · ${c.variants.length} recorded spellings</div>
+        </div>
+        <span class="conf">confidence ${c.confidence} · ${esc(c.verdict)}</span>
+      </div>
+      <table>
+        <thead><tr>
+          <th>Registered</th><th>Name as recorded</th><th>Age</th><th>Station</th><th>Offence</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+
+    <div class="sect">
+      <div class="stitle">Why these records link</div>
+      <ul class="reasons">${c.reasoning.map(x=>'<li>'+esc(x)+'</li>').join('')}</ul>
+    </div>
+
+    <div class="sect">
+      <div class="stitle">Provenance</div>
+      <div class="prov">
+        <dl>
+          <dt>Tables read</dt><dd>${j.provenance.tables.join(' · ')}</dd>
+          <dt>Method</dt><dd>${esc(j.provenance.method)}</dd>
+          <dt>Thresholds</dt><dd>pair ≥ ${j.provenance.thresholds.pair} · merge ≥ ${j.provenance.thresholds.merge}</dd>
+          <dt>Answered in</dt><dd>${j.tookMs} ms</dd>
+        </dl>
+        <div class="limit">${esc(j.limitations[0])}</div>
+      </div>
+    </div>
+  `);
+}
+
+/* benchmark strip */
+fetch(BASE + '/stats').then(r=>r.json()).then(s=>{
+  if(!s.ok) return;
+  const e = s.benchmark.engine, b = s.benchmark.exactStringBaseline;
+  document.getElementById('bench').innerHTML =
+    `<span><b>${s.corpus.cases.toLocaleString('en-IN')}</b> FIRs · <b>${s.corpus.accusedRecords.toLocaleString('en-IN')}</b> accused records</span>` +
+    `<span>recall <b>${(e.recall*100).toFixed(1)}%</b> vs <b>${(b.recall*100).toFixed(1)}%</b> exact match</span>` +
+    `<span>precision <b>${(e.precision*100).toFixed(1)}%</b></span>` +
+    `<span><b>${s.resolution.comparisonReduction}%</b> fewer comparisons than brute force</span>`;
+}).catch(()=>{});
+
+run();
+</script>
+</body>
+</html>
